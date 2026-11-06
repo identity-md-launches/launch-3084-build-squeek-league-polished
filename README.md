@@ -77,15 +77,40 @@ PLAYWRIGHT_BROWSERS_PATH=test/scratch/browsers node .imd/reads/skills/design-cri
 
 The last command used the assignment’s pinned probe; that input is removed from the submission. Our interaction script remains in `scripts/` and serves the export under `/preview/` within one bounded process.
 
-Actual results: production build and typecheck passed; **14 logic/transport tests passed**; **12 Chromium interaction groups passed**, with no script errors or missing local resources; **taste@1 passed 16/16 checks**. All six screens had no page overflow at 320, 390, 768, and 1440px. The 390 × 844 draft has its primary action on the first screen. Selected-tile text contrast was measured in both themes (minimum 4.663:1 light, 4.678:1 dark).
+Actual results: production build and typecheck passed; **14 logic/transport tests passed**; **15 Chromium interaction groups passed**, with no script errors or missing local resources; **taste@1 passed 16/16 checks**. All six screens had no page overflow at 320, 390, 768, and 1440px. The 390 × 844 draft has its primary action on the first screen. Selected-tile text contrast was measured in both themes (minimum 4.663:1 light, 4.678:1 dark).
 
-Browser interaction tests use explicit synthetic RPC/wallet fixtures, never production sample data. They exercise wallet connection, Sepolia switching, wallet-estimated gas, rejection recovery, drafts, backtesting, CSV/PNG downloads, replay, score filtering, API failure, and redeployment. No actual transaction was broadcast. The first league day had not begun during validation, so live settled-day and crown transactions could not be exercised. Live read-only probes independently confirmed both RPC chain IDs, the bound core, contract lock window, certified history, and empty pre-launch event logs. A sampled frontier of 446 contained 36 active rounds and two complete pre-league UTC days; these are observations, not hard-coded fixtures in the app.
+Browser interaction tests use explicit synthetic RPC/wallet fixtures, never production sample data. They exercise wallet connection, Sepolia switching, wallet-estimated gas, rejection recovery, drafts, backtesting, CSV/PNG downloads, replay, score filtering, API failure, redeployment, the connected header at 15 widths from 320 to 780px on all six screens, `core()` failure, and log-scan failure followed by Retry. No actual transaction was broadcast. The first league day had not begun during validation, so live settled-day and crown transactions could not be exercised. Live read-only probes independently confirmed both RPC chain IDs, the bound core, contract lock window, certified history, and empty pre-launch event logs. A sampled frontier of 446 contained 36 active rounds and two complete pre-league UTC days; these are observations, not hard-coded fixtures in the app.
 
-**Limitations:** direct browser outbound transport failed in this environment; live-payload UI inspection used a test-only Node transport bridge, not shipped in the app. WebKit could not launch because required OS libraries were unavailable. Physical mobile wallets, a real signature/confirmation, a screen reader, native 200% zoom, forced-colors rendering, and RTL mirroring were not verified. These are not claimed as passes. See [the full review](artifacts/validation.md), [machine-readable results](artifacts/check-results.json), and [DESIGN.md](DESIGN.md).
+**Limitations:** direct browser outbound transport failed in this environment; live-payload UI inspection used a test-only Node transport bridge, not shipped in the app. WebKit could not launch because required OS libraries were unavailable. Physical mobile wallets, a real signature/confirmation, a screen reader, native 200% zoom, forced-colors rendering, and RTL mirroring were not verified. These are not claimed as passes. See the review below and [DESIGN.md](DESIGN.md).
+
+## Better Interface review
+
+Scope of this revision: the shared header and the loading, failure, and empty states on Activity, What-if, Replay, and League, checked on the production export under `/preview/`. The review record from the first round is not in this repository, so the rest of the product was covered here only by the interaction checks and taste@1 above, not re-reviewed line by line.
+
+| Domain | Status | Evidence |
+| --- | --- | --- |
+| Accessibility | Checked | Failure notices now announce; existing keyboard, modal-focus, and focus-return checks pass. Screen reader not run. |
+| Layout | Checked | Viewed 360 and 390 connected, plus failure screenshots at 390. Sweep below. |
+| Writing | Checked | Failure copy says only what is known and offers Retry. |
+| Typography | Checked | Brand stays on the existing `--text-base` token; taste@1 passed its type checks. |
+| Colors | Checked | No color changes; selected-draft contrast re-measured at 4.663:1 light and 4.678:1 dark. Failure notices were viewed in light theme only. |
+| UI | Checked | Reuses `ErrorNotice`, `Loading`, and `.text-button`; no new components. |
+
+Findings, all fixed and rechecked:
+
+- **HIGH, `src/styles.css:401`:** a connected wallet held the page at 405px wide on viewports from 360px up to that edge, clipping the address (measured at 360, 375, 384, 390, and 393px). The compact brand now applies through 430px, and the wallet icon is dropped below 390px. The second step is needed because the compact brand alone measured 1px of page overflow at 360px and left the control inside the 16px page padding at 375px.
+- **MEDIUM, `src/useLeague.ts`, `src/components/Activity.tsx`, `src/components/Replay.tsx`:** a `core()` failure left Activity, What-if, and Replay loading forever. It now also fails history, each screen shows the error with Retry, and loaders show only while a request is pending. This also fixes Activity showing a loader beside a real history error and League's endless season loader.
+- **MEDIUM, `src/components/Replay.tsx`, `src/components/Standings.tsx`, `src/components/Backtest.tsx`:** failed reads were presented as empty results. Picks stay unknown until a log scan succeeds, the screens say "Player history unavailable", and a failed rescan withdraws earlier empty claims. What-if no longer says no days are available while history is failing or still loading.
+- **MEDIUM, `src/components/Shared.tsx`:** failure notices replaced an announced loader with silent text. `ErrorNotice` is now `role="alert"`.
+- **LOW, `src/components/Standings.tsx`:** "1 picks pending" is now singular.
+
+Left as is: at 390px the League table's last column starts clipped inside its labelled, focusable scroll region. It is reachable by scrolling, and the page itself does not overflow.
+
+Completion: complete for the stated scope, with the limitations listed above.
 
 ## Repository layout and byte budget
 
-`src/` contains the app, contract transport, scoring, hooks, and components. `test/*.test.ts` contains delivered tests. `scripts/` contains the bounded browser validator, static preview helper, contrast checker, and optional social-card authoring script. `public/` holds the source export assets and license notices; `dist/` is the finished export. `artifacts/` records validation and explicitly labelled screenshots.
+`src/` contains the app, contract transport, scoring, hooks, and components. `test/*.test.ts` contains delivered tests. `scripts/` contains the bounded browser validator, static preview helper, contrast checker, and optional social-card authoring script. `public/` holds the source export assets and license notices; `dist/` is the finished export.
 
 The explicit `.gitignore` path budget is generated dependency trees (`**/node_modules/`), Vite/npm caches (`**/.vite/`, `**/.npm/`, `**/.cache/`), TypeScript build metadata (`**/*.tsbuildinfo`), and `/test/scratch/`. **`dist/` is deliberately included.** No dependency archives, registry mirror, submodule, or package cache belongs in the delivered bundle. Scratch files and browser downloads are excluded and are not build inputs.
 

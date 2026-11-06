@@ -22,7 +22,8 @@ const hosts = new Set();
 const check = (name) => { report.checks.push(name); console.log('PASS',name); };
 const server = await preview();
 await mkdir('test/scratch/interaction-shots',{recursive:true});
-async function mock(context,{ mismatch=false, apiFailure=false, noApi=false, offline=false, wallet=false, network=11155111, next=3, frontier=1200, time='2026-11-11T12:00:00Z', alreadyScored=false }={}) {
+async function mock(context,settings={}) {
+  const { mismatch=false, apiFailure=false, noApi=false, offline=false, wallet=false, network=11155111, next=3, frontier=1200, time='2026-11-11T12:00:00Z', alreadyScored=false }=settings;
   const sends=[];
   await context.addInitScript(({time,wallet,league,network}) => {
     const clock = new Date(time).valueOf(); const NativeDate=Date;
@@ -53,6 +54,9 @@ async function mock(context,{ mismatch=false, apiFailure=false, noApi=false, off
     }
     const payload=req.postDataJSON();const requests=Array.isArray(payload)?payload:[payload];
     const responses=requests.map(p=>{
+      // Read live so a check can restore service and press Retry.
+      const failing=(settings.logsFailure&&p.method==='eth_getLogs')||(settings.coreFailure&&p.method==='eth_call'&&p.params[0].to.toLowerCase()===league.toLowerCase()&&p.params[0].data===id('core()').slice(0,10));
+      if(failing)return {jsonrpc:'2.0',id:p.id,error:{code:-32000,message:'Test RPC temporarily unavailable'}};
       let result;
       if(p.method==='eth_blockNumber')result='0x'+(deploy+50).toString(16);
       else if(p.method==='eth_getLogs'){
@@ -110,6 +114,8 @@ async function fresh(browser,settings={}){
   page.on('response',r=>{if(r.url().startsWith(server.url)&&r.status()>=400)report.resourceErrors.push(r.url());});
   await page.goto(server.url);return {context,page};
 }
+const settled=async page=>{await page.locator('.refresh-button:enabled').waitFor({timeout:30000});await page.waitForTimeout(250);};
+const connect=async page=>{await page.getByRole('button',{name:'Connect',exact:true}).click();await page.getByRole('button',{name:'Browser wallet',exact:true}).click();await page.waitForFunction(()=>/0x/.test(document.querySelector('.connect-button').innerText));await page.keyboard.press('Escape');};
 async function run(engine,name){
  let browser;
  try{browser=await engine.launch({headless:true,args:name==='chromium'?['--no-sandbox']:[]});report.engines[name]='Launched';}
@@ -214,6 +220,52 @@ async function run(engine,name){
    assert.equal(await page.locator('.bot-picks').count(),0);
    await page.getByRole('button',{name:/Settle day/}).click();await page.getByRole('dialog',{name:'Connect a wallet'}).waitFor();
    check(`${name}: certification/settlement waiting state, hidden premature bot pick, and Settle action`);await context.close();
+  }
+  {
+   const {context,page}=await fresh(browser,{wallet:true});await settled(page);await connect(page);await page.evaluate(()=>document.fonts.ready);
+   const fits=()=>page.evaluate(()=>{const client=document.documentElement.clientWidth;const button=document.querySelector('.connect-button').getBoundingClientRect();return {client,scroll:document.documentElement.scrollWidth,right:button.right,label:button.width};});
+   for(const screen of ['draft','activity','backtest','replay/2','standings','rules']){
+    await page.evaluate(s=>{location.hash=s;},screen);
+    for(const width of [320,340,359,360,375,384,389,390,393,412,430,431,480,540,780]){
+     await page.setViewportSize({width,height:844});await page.waitForTimeout(40);
+     const m=await fits();assert.equal(m.scroll,m.client,`Connected header widens ${screen} at ${width}: ${JSON.stringify(m)}`);assert.ok(m.right<=m.client-16,`Wallet control leaves the padding on ${screen} at ${width}: ${JSON.stringify(m)}`);
+    }
+   }
+   await page.evaluate(()=>{document.querySelector('.connect-button span').textContent='Switch chain';});
+   for(const width of [320,360,375,390,431,540]){await page.setViewportSize({width,height:844});await page.waitForTimeout(40);const m=await fits();assert.ok(m.scroll===m.client&&m.right<=m.client-16,`Switch chain label overflows at ${width}: ${JSON.stringify(m)}`);}
+   check(`${name}: connected wallet control stays inside the padded viewport from 320 to 780 on every screen`);await context.close();
+  }
+  {
+   const settings={coreFailure:true};const {context,page}=await fresh(browser,settings);await settled(page);
+   for(const screen of ['activity','backtest','replay/0','standings']){
+    await page.goto(server.url+'#'+screen);await page.getByRole('button',{name:'Retry'}).first().waitFor();
+    if(screen!=='standings')assert.equal(await page.locator('.loading-state').count(),0,`${screen} must not stay in a loading state after core() fails`);
+    assert.ok(await page.locator('.error-notice').first().isVisible());assert.equal(await page.locator('.error-notice').first().getAttribute('role'),'alert');
+   }
+   await page.goto(server.url+'#backtest');await page.getByRole('button',{name:'Retry'}).first().waitFor();await page.locator('[data-picker="backtest"]').first().click();
+   await page.getByRole('button',{name:'Sleep call',exact:true}).click();assert.equal(await page.getByText('No completed days available yet').count(),0,'A failed read is not an empty history');
+   settings.coreFailure=false;await page.goto(server.url+'#activity');await settled(page);assert.equal(await page.locator('.heatmap-row').count(),0);
+   await page.getByRole('button',{name:'Retry'}).first().click();await page.locator('.heatmap-row').first().waitFor();assert.equal(await page.locator('.error-notice').count(),0);
+   check(`${name}: core() failure shows an error and Retry on Activity, What-if, Replay and League, and Retry recovers`);await context.close();
+  }
+  {
+   const settings={logsFailure:true,wallet:true};const {context,page}=await fresh(browser,settings);await settled(page);await connect(page);
+   await page.evaluate(()=>{location.hash='replay/2';});await page.locator('.replay-hour').first().waitFor();await page.locator('.replay-players table').waitFor();
+   let players=await page.locator('.replay-players').innerText();
+   assert.ok(players.includes('Player history unavailable')&&players.includes('House Bot'));assert.ok(!players.includes('No player picks'));assert.equal(await page.locator('.replay-players').getByRole('button',{name:'Retry'}).count(),1);
+   await page.evaluate(()=>{location.hash='standings';});await page.locator('.leaderboard').waitFor();
+   const stats=await page.locator('.stats-strip').innerText();assert.ok(stats.includes('38')&&stats.includes('—'),stats);
+   const personal=await page.locator('.personal-history').innerText();assert.ok(personal.includes('Player history unavailable'));assert.ok(!personal.includes('No picks found'));
+   assert.ok((await page.locator('.leaderboard').innerText()).includes('Player history unavailable'));
+   assert.equal(await page.getByText('The league is just waking up').count(),0);
+   await page.screenshot({path:`test/scratch/interaction-shots/${name}-390-logs-unavailable.png`,fullPage:true});
+   settings.logsFailure=false;await page.getByRole('button',{name:'Retry'}).first().click();
+   await page.locator('.personal-history table').waitFor();await page.locator('.leaderboard').getByText('38',{exact:true}).first().waitFor();
+   assert.ok((await page.locator('.stats-strip').innerText()).includes('2'));assert.equal(await page.locator('.error-notice').count(),0);
+   await page.evaluate(()=>{location.hash='replay/2';});await page.locator('.replay-players').getByText('Sleep call').waitFor();
+   await page.evaluate(()=>{location.hash='replay/0';});await page.getByText('No player picks were locked for this day.').waitFor();
+   settings.logsFailure=true;await page.locator('.refresh-button:enabled').click();await page.getByText(/Player logs could not refresh/).waitFor();assert.equal(await page.getByText('No player picks were locked').count(),0,'A failed rescan withdraws the empty claim');
+   check(`${name}: failed log scans say player history is unavailable, make no empty claims, and Retry recovers true data and true empties`);await context.close();
   }
   report.engines[name]='Passed';
  }finally{await browser.close();}

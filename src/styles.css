@@ -398,8 +398,13 @@ dialog::backdrop { background: #10221899; backdrop-filter: blur(3px); }
   .wallet-dialog { margin: auto 0 0; width: 100%; max-width: 100%; border-bottom: 0; border-radius: 16px 16px 0 0; max-height: 90dvh; }
   .dialog-content { padding: 22px 20px max(22px, env(safe-area-inset-bottom)); }
 }
+@media (max-width: 430px) {
+  .header-inner { gap: 6px; }
+  .brand { font-size: var(--text-base); gap: 6px; }.brand svg { width: 22px; height: 22px; }
+}
+@media (max-width: 389px) { .connect-button { padding-inline: 7px; }.connect-button>svg { display: none; } }
 @media (max-width: 359px) {
-  .brand { gap: 6px; }.brand svg { width: 22px; height: 22px; }.header-tools { gap: 2px; }.connect-button { padding-inline: 7px; }.connect-button>svg { display: none; }
+  .header-tools { gap: 2px; }
   .page-utilities>span { max-width: 176px; }.page-utilities>span>.dot-divider { display: none; }
   .refresh-button { align-self: flex-start; }.refresh-button span { max-width: 52px; text-align: start; line-height: 1.3; }
   .slot-grid { gap: 5px; }.panel { padding-inline: 12px; }.hour-slot { min-height: 54px; }

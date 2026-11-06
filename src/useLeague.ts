@@ -32,6 +32,7 @@ export function useLeague(day: number, account?: string) {
   const refresh = useCallback(async () => {
     if (busy.current) return;
     busy.current = true; setRefreshing(true);
+    let coreKnown = false;
     const wheelRequest = liveWheel().then(v => { if (alive.current) setWheel(v); }).catch(() => { if (alive.current) setWheel({ state: 'unknown' }); });
     const eventRequest = loadEvents(setEventsProgress).then(async values => {
       const settled = await settledCounts(values);
@@ -39,7 +40,8 @@ export function useLeague(day: number, account?: string) {
     }).catch(e => { if (alive.current) setEventsError(explainError(e)); });
     try {
       const core = await scalar<string>('core');
-      if (alive.current) setBoundCore(core);
+      coreKnown = true;
+      if (alive.current) { setBoundCore(core); setHistoryError(''); }
       const verificationRequest = apiCore().then(api => {
         if (alive.current) { setApiAddress(api); setVerification(api.toLowerCase() === core.toLowerCase() ? 'match' : 'mismatch'); }
       }).catch(() => { if (alive.current) setVerification('unavailable'); });
@@ -54,7 +56,7 @@ export function useLeague(day: number, account?: string) {
       }
       if (alive.current) { setOverview({ day, core, next: Number(next), opens: Number(window.opens), closes: Number(window.closes), dayStart: Number(start), sleepPoints: Number(sleepPoints), streamId, bot }); setError(''); setUpdated(Date.now()); }
       await Promise.allSettled([verificationRequest, historyRequest]);
-    } catch (e) { if (alive.current) { setError(explainError(e)); } }
+    } catch (e) { if (alive.current) { setError(explainError(e)); if (!coreKnown) setHistoryError(explainError(e)); } } // History needs core(), so it failed too.
     await Promise.allSettled([wheelRequest, eventRequest]);
     busy.current = false;
     if (alive.current) setRefreshing(false);

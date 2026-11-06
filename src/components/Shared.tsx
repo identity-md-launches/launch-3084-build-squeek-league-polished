@@ -1,7 +1,7 @@
 import { AlertCircle, ChevronDown, ExternalLink, RefreshCw } from 'lucide-react';
 import { shortAddress } from '../config';
 export function ErrorNotice({ children, retry }: { children: React.ReactNode; retry?: () => void }) {
-  return <div className="notice error-notice"><AlertCircle size={18} aria-hidden="true"/><div><p>{children}</p>{retry && <button className="text-button" onClick={retry}><RefreshCw size={14}/> Retry</button>}</div></div>;
+  return <div className="notice error-notice" role="alert"><AlertCircle size={18} aria-hidden="true"/><div><p>{children}</p>{retry && <button className="text-button" onClick={retry}><RefreshCw size={14}/> Retry</button>}</div></div>;
 }
 export function Loading({ text = 'Reading the testnet…' }: { text?: string }) { return <div className="loading-state" role="status"><span className="loading-pixel"/>{text}</div>; }
 export function Address({ address, me }: { address: string; me?: string }) {

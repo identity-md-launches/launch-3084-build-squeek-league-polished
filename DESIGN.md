@@ -42,8 +42,8 @@ Fonts are packaged by `@fontsource` and loaded locally in `src/main.tsx`. DM San
 | --- | --- | --- |
 | `--text-xs` | 12px / `.75rem` | Captions, local hours, compact mobile navigation |
 | `--text-sm` | 14px / `.875rem` | Buttons, table data, hints |
-| `--text-base` | 16px / `1rem` | Body, slot numbers, input/select text |
-| `--text-lg` | 20px / `1.25rem` | Section headings, mobile brand |
+| `--text-base` | 16px / `1rem` | Body, slot numbers, input/select text, brand at 430px and below |
+| `--text-lg` | 20px / `1.25rem` | Section headings, brand from 431px to 540px |
 | `--text-xl` | 28px / `1.75rem` | Phone page titles, desktop brand, totals |
 | `--text-display` | 40px / `2.5rem` | Desktop page titles, backtest average |
 
@@ -59,11 +59,13 @@ The shared maximum width is 1216px including desktop inline padding of 32px. Hea
 - **At 1050px:** panels tighten from 24px to 20px padding, draft split becomes `1.2fr 1fr`, and replay changes from 8 to 6 hour columns.
 - **At 780px:** main content becomes one column with 24px side margins; the draft’s supporting content can use a smaller two-column layout; replay uses 4 columns. Network label and decorative navigation note are removed when they do not fit.
 - **At 540px:** margins are 16px, panels use 18px × 16px padding and 10px radius, navigation is five equal columns, H1 is 28px. The full scene is hidden in favor of the small heading hamster and a text live badge after the draft. Slot buttons are at least 55px tall. The three play steps and maintenance tools stack.
-- **At 359px:** panel inline padding is 12px, slot gaps are 5px, the header brand uses 16px and omits its redundant hamster icon. The title can wrap. No critical data is clipped.
+- **At 430px:** the brand uses 16px with a 22px hamster mark, and the brand and header gaps are 6px, so the wider connected-address control fits beside the theme and rules controls.
+- **At 389px:** the wallet control drops its icon and uses 7px inline padding. The address, theme, and rules controls all remain.
+- **At 359px:** panel inline padding is 12px, slot gaps are 5px, header tool gaps are 2px, and the header brand omits its redundant hamster icon. The title can wrap. No critical data is clipped.
 
 The heatmap and wide tables scroll within named, focusable regions; the page itself does not scroll horizontally. The heatmap says to swipe on phones. Full player addresses expand in the table flow rather than floating outside the scroll region.
 
-Observed: all six routes reflowed without page overflow at 320, 390, 768, and 1440px. At 390 × 844, the title, all 24 slots, and Lock my picks are on the first screen. The settled replay intentionally continues vertically. Native 200% zoom and RTL mirroring were not exercised.
+Observed: all six routes reflowed without page overflow at 320, 390, 768, and 1440px, and with a connected wallet at 15 widths from 320 to 780px, including the 359/360, 389/390, and 430/431px breakpoint edges. At 390 × 844, the title, all 24 slots, and Lock my picks are on the first screen. The settled replay intentionally continues vertically. Native 200% zoom and RTL mirroring were not exercised.
 
 ## Elevation & depth
 
@@ -83,7 +85,7 @@ Desktop panels and scene: 12px radius; phone panels: 10px; ordinary controls: 6p
 | `Draft`, `src/components/Draft.tsx` | Holds the unsigned local draft. Countdown, checking/open/closed/locked/waiting states, one lock transaction, core-verification gate, inline retry, faucet links for an empty wallet. |
 | `.primary`, `.secondary`, `.text-button`, `.icon-button`, `src/styles.css` | One filled primary action per main task. Neutral secondary actions; text links for navigation/support. Hover is pointer-gated, active uses 0.96 scale, disabled uses 55% opacity, keyboard uses the focus token. |
 | `WalletDialog`, `src/components/WalletDialog.tsx` | One header connect control opens a native modal. Discovered providers, browser-wallet fallback, mobile deep links, connecting/error states, full connected address, disconnect, Sepolia switch, and faucets. Escape/backdrop/close button dismiss it; explicit Tab wrapping via `containDialogFocus` and native focus restoration. |
-| `ErrorNotice`, `Loading`, `Address`, `Faucets`, `src/components/Shared.tsx` | Recoverable nearby feedback, optional retry, static loading marker, expandable full public addresses, deliberate external faucet links. |
+| `ErrorNotice`, `Loading`, `Address`, `Faucets`, `src/components/Shared.tsx` | Recoverable nearby feedback announced as `role="alert"`, optional retry, `role="status"` loading marker shown only while its request is pending, expandable full public addresses, deliberate external faucet links. |
 | Activity patterns, `src/components/Activity.tsx` | All-history grid, completed-day filter, 0–6 ramp, exact cell details, partial markers, optional CSV download; loading and failure stay explicit. |
 | Replay patterns, `src/components/Replay.tsx` | Settled-day and player selectors, 24 hours × 6 rounds, active/idle and drafted hit/miss states, accessible text labels, public results table. Unknown rounds are not presented as idle. |
 | Standings patterns, `src/components/Standings.tsx` | Authoritative scores, shared ranks, labelled non-champion House Bot, public personal history, ordered maintenance actions, reviewable score batches. |
@@ -96,6 +98,6 @@ High-frequency control transitions last 120ms with `cubic-bezier(.2,0,0,1)`. The
 
 Start a screen inside `App`’s shared content wrapper, use one `.page-heading` and H1, then a task-focused panel or data layout. Reuse `SlotPicker` rather than rebuilding a second selection model. Reuse semantic tokens and the six type sizes. Keep inputs at 16px and errors beside their action with a retry route.
 
-Keep the House Bot a labelled statistical player and show only contract-backed league points. Preserve UTC meaning and local-time labels. Do not substitute missing data with zeros, use color alone for a pick/result, hide a full address permanently, add a hero above the draft, introduce another font, or add border-plus-shadow surfaces. Use a neutral maintenance action unless it is the one primary action currently being reviewed.
+Keep the House Bot a labelled statistical player and show only contract-backed league points. Preserve UTC meaning and local-time labels. Do not substitute missing data with zeros or present a failed read as an empty result: "No picks" claims need a current, successful log scan, otherwise say "Player history unavailable" and offer Retry. Do not use color alone for a pick/result, hide a full address permanently, add a hero above the draft, introduce another font, or add border-plus-shadow surfaces. Use a neutral maintenance action unless it is the one primary action currently being reviewed.
 
 Design guidance: adapted from Jakub Krehel’s Better Interface, MIT, pinned commit `267330e1adfc66a718fb65fa6918c1f06d0a689e`. Documentation method: Paul Bakaus’s Impeccable, Apache-2.0, pinned commit `9d715cc4f5564a990ca8345abfdd5df6dc9b41c8`. Supplied license texts are retained in `artifacts/design-guidance-LICENSE.txt`. The six-domain review and its explicit limitations are in `artifacts/validation.md`.
