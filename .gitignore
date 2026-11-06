@@ -1,0 +1,12 @@
+# Force the required static export into the submission, including under global defaults.
+!/dist/
+!/dist/**
+
+# Path budget: dependency trees and generated caches at any depth; scratch validation only.
+**/node_modules/
+**/.vite/
+**/.npm/
+**/.cache/
+**/*.tsbuildinfo
+/test/scratch/
+# dist/ is the complete, submitted static export and is deliberately included.
